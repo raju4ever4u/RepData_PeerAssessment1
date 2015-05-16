@@ -8,18 +8,185 @@ output:
 
 ## Loading and preprocessing the data
 
+### 1. Loading the data
+```{r,echo=TRUE,error=FALSE,warning=FALSE}
+# Downloading and unzipping the file in the current working directory.
+fileurl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip";
+download.file(fileurl,destfile="./repdata-data-activity.zip",method="libcurl");
+filename <- unzip(zipfile="./repdata-data-activity.zip");
+data_raw <- read.csv(file = filename,header=TRUE,na.strings="NA");
+```
 
+### 2. Preprocessing the data
+```{r,error=FALSE,warning=FALSE}
+#Pre-Processing the data that is need for this section.
+data_processed <- as.data.frame(as.list(with(data_raw, aggregate(x=steps,by=list(date), function(x) {c(Sum=sum(x,na.rm=TRUE),Mean=mean(x,na.rm=TRUE),Median=median(x[x>0],na.rm=TRUE))}))))
+names(data_processed) <- c("date","sum","mean","median") 
+```
 
 ## What is mean total number of steps taken per day?
 
+### 1. The total number of steps per day
+```{r,echo=TRUE,results='asis',error=FALSE,warning=FALSE}
+#Displaying the total number of steps per day.
+library("knitr")
+kable(data_processed[,c("date","sum")],format="markdown")
+```
 
+### 2. Histogram of the total number of steps taken each day
+```{r,error=FALSE,warning=FALSE}
+#Creating Histogram with total number of steps and Bar plot with total number of steps per day.
+library(ggplot2)
+with(data_processed,hist(sum,main="Histogram of the total number of steps taken each day",xlab="steps"))
+
+ggplot(aes(x=as.Date(date),y=sum),data=data_processed)+geom_bar(stat = 'identity', position = 'dodge')+scale_x_date(breaks = '1 day')+theme(axis.text.x = element_text(angle = 90, vjust = 1))+labs(list(title = 'Bar chart of the total number of steps taken each day', x = 'Date', y = 'Steps'))
+```
+
+### 3. Report the mean and median of the total number of steps taken per day
+```{r,error=FALSE,warning=FALSE}
+#Displaying total mean and total median and a report for mean/median with date.
+cat("Total Mean is: ",mean(data_processed$sum,na.rm=TRUE))
+cat("Total Median is: ",median(data_processed$sum,na.rm=TRUE))
+ggplot(data=data_processed)+geom_point(aes(as.Date(date),mean,colour="Mean"),na.rm=TRUE)+geom_point(aes(as.Date(date),median,colour="Median"),na.rm=TRUE)+scale_x_date(breaks = '1 day')+theme(axis.text.x = element_text(angle = 90, vjust = 1))+scale_fill_discrete(labels=c("trt1","ctrl"))+labs(list(title = 'Mean and Median of the total number of steps taken per day', x = ('Date'), y = 'Values',colour="Legend"))
+```
 
 ## What is the average daily activity pattern?
 
+### 1. Time series plot with 5-minute interval and average number of steps taken
+```{r,error=FALSE,warning=FALSE}
+#Pre-Processing the data that is need for this section and report for average number of steps per interval.
+data_prc_avg <- as.data.frame(as.list(with(data_raw, aggregate(x=steps,by=list(interval), function(x) {c(Mean=mean(x,na.rm=TRUE))}))))
+names(data_prc_avg) <- c("interval","average")
+ggplot(data=data_prc_avg,aes(x=interval,y=average))+geom_line(col='blue')+labs(list(title = 'Average number of steps per interval', x = 'Interval', y = 'Average number of steps'))
+```
 
+### 2. Which time-interval contains the maximum number of steps
+```{r,error=FALSE,warning=FALSE}
+#Displaying the interval that has maximum average number of steps.
+data_prc_avg[which.max(data_prc_avg$average),]
+```
 
 ## Imputing missing values
 
+### 1. Total number of missing values in the dataset
 
+```{r,error=FALSE,warning=FALSE}
+#Displaying the total number of missing values in the data set.
+length(which(is.na(data_raw$steps)))
+```
+
+### 2 & 3. Filling Missing values in the dataset
+```{r,error=FALSE,warning=FALSE}
+#Creating three columns replacing missing values in steps with mean/median/average that is calculated previously.
+data_raw <- merge(x=merge(x = data_raw, y = data_processed, by = "date", all = TRUE),y=data_prc_avg,by="interval",all=TRUE)
+data_raw$steps_rep_mean <- ifelse(is.na(data_raw$steps),data_raw$mean,data_raw$steps)
+data_raw$steps_rep_median <- ifelse(is.na(data_raw$steps),data_raw$median,data_raw$steps)
+data_raw$steps_rep_average <- ifelse(is.na(data_raw$steps),data_raw$average,data_raw$steps)
+```
+
+1. Histogram of the total number of steps taken each day replacing missing values with mean
+```{r,error=FALSE,warning=FALSE}
+#Preparing  data that is similar to section 1 but replacing missing values in steps with mean for that day.
+data_rep_mean <- as.data.frame(as.list(with(data_raw, aggregate(x=steps_rep_mean,by=list(date), function(x) {c(Sum=sum(x,na.rm=TRUE),Mean=mean(x,na.rm=TRUE),Median=median(x[x>0],na.rm=TRUE))}))))
+names(data_rep_mean) <- c("date","sum","mean","median") 
+```
+
+        . The total number of steps per day
+```{r,echo=TRUE,results='asis',error=FALSE,warning=FALSE}
+#Displaying the total number of steps per day.
+library("knitr")
+kable(data_rep_mean[,c("date","sum")],format="markdown")
+```
+
+
+        . Histogram of the total number of steps taken each day 
+```{r,error=FALSE,warning=FALSE}
+#Creating Histogram with total number of steps and Bar plot with total number of steps per day.
+with(data_rep_mean,hist(sum,main="Histogram of the total number of steps taken each day \n replacing missing values with mean for that day",xlab="steps"))
+
+ggplot(aes(x=as.Date(date),y=sum),data=data_rep_mean)+geom_bar(stat = 'identity', position = 'dodge')+scale_x_date(breaks = '1 day')+theme(axis.text.x = element_text(angle = 90, vjust = 1))+labs(list(title = 'Bar chart of the total number of steps taken each day \n replacing missing values with mean for that day', x = 'Date', y = 'Steps'))
+```
+
+        . Report the mean and median of the total number of steps taken per day
+```{r,error=FALSE,warning=FALSE}
+#Displaying total mean and total median and a report for mean/median with date.
+cat("Total Mean is: ",mean(data_rep_mean$sum,na.rm=TRUE))
+cat("Total Median is: ",median(data_rep_mean$sum,na.rm=TRUE))
+ggplot(data=data_rep_mean)+geom_point(aes(as.Date(date),mean,colour="Mean"),na.rm=TRUE)+geom_point(aes(as.Date(date),median,colour="Median"),na.rm=TRUE)+scale_x_date(breaks = '1 day')+theme(axis.text.x = element_text(angle = 90, vjust = 1))+scale_fill_discrete(labels=c("trt1","ctrl"))+labs(list(title = 'Mean and Median of the total number of steps taken per day \n replacing missing values with mean for that day', x = ('Date'), y = 'Values',colour="Legend"))
+```
+
+2. Histogram of the total number of steps taken each day replacing missing values with median
+```{r,error=FALSE,warning=FALSE}
+#Preparing  data that is similar to section 1 but replacing missing values in steps with median for that day.
+data_rep_median <- as.data.frame(as.list(with(data_raw, aggregate(x=steps_rep_median,by=list(date), function(x) {c(Sum=sum(x,na.rm=TRUE),Mean=mean(x,na.rm=TRUE),Median=median(x[x>0],na.rm=TRUE))}))))
+names(data_rep_median) <- c("date","sum","mean","median") 
+```
+
+        . The total number of steps per day
+```{r,echo=TRUE,results='asis',error=FALSE,warning=FALSE}
+#Displaying the total number of steps per day.
+library("knitr")
+kable(data_rep_median[,c("date","sum")],format="markdown")
+```
+
+
+        . Histogram of the total number of steps taken each day 
+```{r,error=FALSE,warning=FALSE}
+#Creating Histogram with total number of steps and Bar plot with total number of steps per day.
+with(data_rep_median,hist(sum,main="Histogram of the total number of steps taken each day \n replacing missing values with median for that day",xlab="steps"))
+
+ggplot(aes(x=as.Date(date),y=sum),data=data_rep_median)+geom_bar(stat = 'identity', position = 'dodge')+scale_x_date(breaks = '1 day')+theme(axis.text.x = element_text(angle = 90, vjust = 1))+labs(list(title = 'Bar chart of the total number of steps taken each day \n replacing missing values with median for that day', x = 'Date', y = 'Steps'))
+```
+
+        . Report the mean and median of the total number of steps taken per day
+```{r,error=FALSE,warning=FALSE}
+#Displaying total mean and total median and a report for mean/median with date.
+cat("Total Mean is: ",mean(data_rep_median$sum,na.rm=TRUE))
+cat("Total Median is: ",median(data_rep_median$sum,na.rm=TRUE))
+ggplot(data=data_rep_median)+geom_point(aes(as.Date(date),mean,colour="Mean"),na.rm=TRUE)+geom_point(aes(as.Date(date),median,colour="Median"),na.rm=TRUE)+scale_x_date(breaks = '1 day')+theme(axis.text.x = element_text(angle = 90, vjust = 1))+scale_fill_discrete(labels=c("trt1","ctrl"))+labs(list(title = 'Mean and Median of the total number of steps taken per day \n replacing missing values with median for that day', x = ('Date'), y = 'Values',colour="Legend"))
+```
+
+3. Histogram of the total number of steps taken each day replacing missing values with average
+```{r,error=FALSE,warning=FALSE}
+#Preparing  data that is similar to section 1 but replacing missing values in steps with average for that interval.
+data_rep_average <- as.data.frame(as.list(with(data_raw, aggregate(x=steps_rep_average,by=list(date), function(x) {c(Sum=sum(x,na.rm=TRUE),Mean=mean(x,na.rm=TRUE),Median=median(x[x>0],na.rm=TRUE))}))))
+names(data_rep_average) <- c("date","sum","mean","median") 
+```
+
+        . The total number of steps per day        
+```{r,echo=TRUE,results='asis',error=FALSE,warning=FALSE}
+#Displaying the total number of steps per day.
+library("knitr") 
+kable(data_rep_average[,c("date","sum")],format="markdown") 
+```
+
+
+        . Histogram of the total number of steps taken each day 
+```{r,error=FALSE,warning=FALSE}
+#Creating Histogram with total number of steps and Bar plot with total number of steps per day.
+with(data_rep_average,hist(sum,main="Histogram of the total number of steps taken each day \n replacing missing values with average for that interval",xlab="steps"))
+
+ggplot(aes(x=as.Date(date),y=sum),data=data_rep_average)+geom_bar(stat = 'identity', position = 'dodge')+scale_x_date(breaks = '1 day')+theme(axis.text.x = element_text(angle = 90, vjust = 1))+labs(list(title = 'Bar chart of the total number of steps taken each day \n replacing missing values with average for that interval', x = 'Date', y = 'Steps'))
+```
+
+        . Report the mean and median of the total number of steps taken per day
+```{r,error=FALSE,warning=FALSE}
+#Displaying total mean and total median and a report for mean/median with date.
+cat("Total Mean is: ",mean(data_rep_average$sum,na.rm=TRUE))
+cat("Total Median is: ",median(data_rep_average$sum,na.rm=TRUE))
+ggplot(data=data_rep_average)+geom_point(aes(as.Date(date),mean,colour="Mean"),na.rm=TRUE)+geom_point(aes(as.Date(date),median,colour="Median"),na.rm=TRUE)+scale_x_date(breaks = '1 day')+theme(axis.text.x = element_text(angle = 90, vjust = 1))+scale_fill_discrete(labels=c("trt1","ctrl"))+labs(list(title = 'Mean and Median of the total number of steps taken per day \n replacing missing values with average for that interval', x = ('Date'), y = 'Values',colour="Legend"))
+```
+
+#### Conclusion: 
+There is no impact on missing values if we replace missing values with mean or median calculated per day. But if we replace with average of the interval, I see a total number of steps increased per day. 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r,error=FALSE,warning=FALSE}
+#Preparing the data needed for this section and creating a plot as needed.
+data_raw$wend <- as.factor(ifelse(weekdays(as.Date(data_raw$date)) %in% c("Saturday","Sunday"), "Weekend", "Weekday"))
+data_prc_avg <- as.data.frame(as.list(with(data_raw, aggregate(x=steps_rep_average,by=list(interval,wend), function(x) {c(Mean=mean(x,na.rm=TRUE))}))))
+names(data_prc_avg) <- c("interval","wend","average")
+ggplot(data=data_prc_avg,aes(interval,average))+geom_line(col="blue")+labs(list(title = 'Comparision between weekday and weekend', x = 'Interval', y = 'Number of steps'))+facet_grid(wend ~ .)
+```
+
+#### Conclusion: During weekends the number of steps on average are high between 10 to 20 hours.
